@@ -67,7 +67,7 @@ public class Dependency<K, V> {
     public void addDependency(Dependency<K, V> dependency)
             throws CircularDependencyException, NullPointerException {
         if(dependency == null) {
-            throw new NullPointerException("Dependency task cannot be null");
+            throw new NullPointerException("Dependency cannot be null");
         }
 
         validateNewDependency(this,dependency);
@@ -111,10 +111,10 @@ public class Dependency<K, V> {
     }
 
     @Override
-    public boolean equals(Object task) {
-        if(this == task) return true;
-        if(task == null || getClass() != task.getClass()) return false;
-        Dependency<?,?> that = (Dependency<?,?>)task;
+    public boolean equals(Object dependency) {
+        if(this == dependency) return true;
+        if(dependency == null || getClass() != dependency.getClass()) return false;
+        Dependency<?,?> that = (Dependency<?,?>)dependency;
         return dataKey != null ? dataKey.equals(that.dataKey) : that.dataKey == null;
     }
 
@@ -275,8 +275,8 @@ public class Dependency<K, V> {
         // No further dependency hierarchy to check.
         if(!newDependency.hasDependencies()) return;
 
-        for(K _dependencyTaskKey : newDependency.getDependencies().keySet()) {
-            validateNewDependency(dependantDependency,newDependency.getDependencies().get(_dependencyTaskKey));
+        for(K _dependencyKey : newDependency.getDependencies().keySet()) {
+            validateNewDependency(dependantDependency,newDependency.getDependencies().get(_dependencyKey));
         }
     }
 }
