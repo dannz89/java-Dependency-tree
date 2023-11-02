@@ -1,9 +1,6 @@
 package com.ddt.dependencyutils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import com.ddt.dependencyutils.exception.CircularDependencyException;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -14,11 +11,10 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import org.springframework.core.annotation.Order;
 
 @JsonSerialize(using = DependencySerializer.class)
 public class Dependency<K, V> {
-    private Dependency listHead = null;
-
     @JsonProperty("dataKey")
     private K dataKey;
     @JsonProperty("data")
@@ -32,19 +28,17 @@ public class Dependency<K, V> {
     @JsonIgnore
     private boolean isADependency = false;
 
+    @JsonIgnore
+    private DependencyForest dependencyForest;
+
+    @JsonIgnore
+    private DependencyForest.SerializingScheme serializingScheme = DependencyForest.SerializingScheme.DEPENDANTS;
     private static boolean serializeDependencies = false;
+
     private static List<Dependency<?,?>> outermostLeafDependencies;
     private static List<Dependency<?,?>> dependenciesWithNoDependencies;
 
-    public Dependency(){
-        if(Dependency.outermostLeafDependencies ==null) {
-            Dependency.outermostLeafDependencies = new ArrayList<>();
-        }
-        if(Dependency.dependenciesWithNoDependencies ==null) {
-            Dependency.dependenciesWithNoDependencies = new ArrayList<>();
-        }
-        Dependency.outermostLeafDependencies.add(this);
-        Dependency.dependenciesWithNoDependencies.add(this);
+    public Dependency() {
     }
     @JsonCreator
     public Dependency(@JsonProperty("dataKey") K dataKey, @JsonProperty("data") V data) {
@@ -66,42 +60,46 @@ public class Dependency<K, V> {
 
     public void addDependency(Dependency<K, V> dependency)
             throws CircularDependencyException, NullPointerException {
-        if(dependency == null) {
-            throw new NullPointerException("Dependency cannot be null");
-        }
+        if (dependency == null) return;
 
+        /**
+         * Order is crucial. Even if we have no dependencies, the new dependency may still have this Dependency
+         * as an ancestor dependency so we have to check first.
+         */
+
+        // Check first.
         validateNewDependency(this,dependency);
 
         // If we get here, we didn't throw a CircularReferenceException so the new dependency is valid.
-        if(this.dependencies ==null){
-            this.dependencies = new HashMap<K, Dependency<K, V>>();
+        if (dependencies == null) {
+            dependencies = new HashMap<K, Dependency<K, V>>();
         }
 
-        // Save time validating.
-        if(this.dependencies.containsKey(dependency.getDataKey())
-                && this.dependencies.get(dependency.getDataKey()).equals(dependency)) return;
+        // Save time if it's already been added.
+        if (dependencies.containsKey(dependency.getDataKey())
+                && dependencies.get(dependency.getDataKey()).equals(dependency)) return;
 
-        this.dependencies.put(dependency.getDataKey(),dependency);
+        dependencies.put(dependency.getDataKey(), dependency);
+
         dependency.setIsADependency(true);
-        // We now have dependencies.
-        if(Dependency.dependenciesWithNoDependencies.contains(this)){
-            Dependency.dependenciesWithNoDependencies.remove((this));
-        }
         dependency.addDependant(this);
+        // We now have dependencies.
+        if (hasForest()) {
+            dependencyForest.updateAllDependencies();
+        }
     }
 
     private void setIsADependency(boolean isADependency){
         this.isADependency=isADependency;
-
-        if(isADependency && Dependency.outermostLeafDependencies.contains(this)){
-            Dependency.outermostLeafDependencies.remove(this);
-        }
     }
 
-    public static boolean getSerializeDependencies(){return Dependency.serializeDependencies;}
+    public boolean isADependency() {
+        return isADependency;
+    }
 
-    public static void setSerializeDependencies(boolean serializeDependencies) {
-        Dependency.serializeDependencies = serializeDependencies;}
+    public void setSerializingScheme(DependencyForest.SerializingScheme serializingScheme) {
+        this.serializingScheme = serializingScheme;
+    }
 
     public void setFinished(boolean finished){
         this.finished = finished;
@@ -118,48 +116,132 @@ public class Dependency<K, V> {
         return dataKey != null ? dataKey.equals(that.dataKey) : that.dataKey == null;
     }
 
+    public DependencyForest.SerializingScheme getSerializingScheme() {
+        return serializingScheme;
+    }
+
+    /**
+     * Tests whether this Dependency has any parent or ancestor Dependency with dataKey.equals(key)
+     *
+     * @param key
+     * @return
+     */
+    public boolean hasDependant(K key) {
+        if (!hasDependants()) return false;
+
+        if (getDependants().containsKey(key)) return true;
+
+        for (Dependency dependant : getDependants().values()) {
+            if (dependant.hasDependant(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Tests if this Dependency has any parent or ancestor dependency with dataKey.equals(key).
+     *
+     * @param key
+     * @return
+     */
+    public boolean hasDependency(K key) {
+        if (!hasDependencies()) return false;
+
+        if (getDependencies().containsKey(key)) return true;
+
+        for (Dependency dependency : getDependencies().values()) {
+            if (dependency.hasDependency(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Traverses the dependency tree and returns the node with getDataKey().equals(key) else null if not found.
+     *
+     * @param key
+     * @return
+     */
+    public Dependency<K, V> getDependency(K key) {
+        if (!hasDependency(key)) return null;
+
+        if (getDependencies().containsKey(key)) {
+            return getDependencies().get(key);
+        }
+
+        for (Dependency dependency : getDependencies().values()) {
+            return dependency.getDependency(key);
+        }
+
+        //Should never get here.
+        return null;
+    }
+
+    /**
+     * Traverses the dependants tree of this Dependency and returns the node with getDataKey().equals(key) else
+     * null if not found.
+     *
+     * @param key
+     * @return
+     */
+    public Dependency<K, V> getDependant(K key) {
+        if (!hasDependant(key)) return null;
+
+        if (getDependants().containsKey(key)) {
+            return getDependants().get(key);
+        }
+
+        for (Dependency dependant : getDependants().values()) {
+            return dependant.getDependant(key);
+        }
+
+        //Should never get here.
+        return null;
+    }
+
+
+    public boolean hasForest() {
+        return dependencyForest != null;
+    }
+
+    public void setDependencyForest(DependencyForest<K, V> dependencyForest) {
+        if (this.dependencyForest == dependencyForest || dependencyForest == null) return;
+
+        this.dependencyForest = dependencyForest;
+        if (this.hasDependencies()) {
+            this.getDependencies().values().forEach(dep -> dep.setDependencyForest(dependencyForest));
+        }
+        if (this.hasDependants()) {
+            this.getDependants().values().forEach(dep -> dep.setDependencyForest(dependencyForest));
+        }
+    }
+
     public boolean hasDependencies() {
         return this.getDependencies()!=null && this.getDependencies().size()>0;
     }
-    public boolean hasDependants() { return this.getDependants()!=null && this.getDependants().size()>0;}
+    public boolean hasDependants() { return this.getDependants()!=null && this.getDependants().size() > 0;
+    }
+
+    public int size() {
+        int[] size = {1};
+
+        if (serializingScheme == DependencyForest.SerializingScheme.DEPENDANTS && getDependants() != null) {
+            getDependants().forEach((dependantKey, dependantValue) -> size[0] += dependantValue.size());
+        }
+
+        if (serializingScheme == DependencyForest.SerializingScheme.DEPENDENCIES && getDependencies() != null) {
+            getDependencies().forEach((dependencyKey, dependencyValue) -> size[0] += dependencyValue.size());
+        }
+
+        return size[0];
+    }
 
     @Override
     public String toString() {
         return this.dataKey.toString();
     }
-
-    /**
-     * Generates a string represendint the tree.
-     * @return
-     */
-    public static ArrayList<String>allTreesToStrings(){
-        if(Dependency.outermostLeafDependencies ==null || Dependency.outermostLeafDependencies.size()==0) return null;
-
-        ArrayList<String> trees = new ArrayList();
-        for(Dependency<?,?> dependency : Dependency.outermostLeafDependencies) {
-            trees.add(dependency.treeToString());
-        }
-        return trees;
-    }
-
-    public static ArrayList<String>allDependantTreesToStrings(){
-        if(Dependency.dependenciesWithNoDependencies ==null|| Dependency.dependenciesWithNoDependencies.size()==0) return null;
-        ArrayList<String> trees = new ArrayList();
-        for(Dependency<?,?> dependency : Dependency.dependenciesWithNoDependencies) {
-            trees.add(dependency.dependantTreeToString());
-        }
-        return trees;
-    }
-
-    public static void clearDependencyTrees(){
-        if(dependenciesWithNoDependencies !=null ) dependenciesWithNoDependencies.clear();
-        if(outermostLeafDependencies !=null ) outermostLeafDependencies.clear();
-    }
-
-    public static List<Dependency<?,?>> getOutermostLeafDependencies() {
-        return Dependency.outermostLeafDependencies;
-    }
-    public static List<Dependency<?,?>> getDependenciesWithNoDependencies() { return Dependency.dependenciesWithNoDependencies; }
 
     public String dependantTreeToString(){
         return dependantTreeToString(0,this);
@@ -205,13 +287,13 @@ public class Dependency<K, V> {
         }
     }
 
-    public static Dependency fromJson(String Json)
+    public static Collection<Dependency> fromJson(String Json)
             throws JsonProcessingException, JsonMappingException {
         ObjectMapper objectMapper = new ObjectMapper();
         SimpleModule module = new SimpleModule();
-        module.addDeserializer(Dependency.class, new DependencyDeserializer());
+        module.addDeserializer(Collection.class, new DependencyDeserializer());
         objectMapper.registerModule(module);
-        return objectMapper.readValue(Json, Dependency.class);
+        return objectMapper.readValue(Json, Collection.class);
     }
 
 
