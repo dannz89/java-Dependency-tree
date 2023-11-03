@@ -6,15 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.ddt.dependencyutils.exception.CircularDependencyException;
 
-import com.fasterxml.jackson.core.*;
-import org.junit.jupiter.api.Disabled;
+
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -33,7 +29,6 @@ public class DependencyTest
 	}
 
 	@Test
-	@Disabled
 	public void noDuplicateDependenciesAdded() throws CircularDependencyException{
 		DependencyForest<String, String> dependencyForest = new DependencyForest<>();
 
@@ -55,7 +50,6 @@ public class DependencyTest
 	}
 
 	@Test
-	@Disabled
 	public void throwAnException() throws CircularDependencyException {
 		Dependency<String,String> DependencyA = new Dependency<>("A taks","A Dependency");
 		Dependency<String,String> DependencyQ = new Dependency<>("Q Dependency","Q Dependency");
@@ -101,7 +95,6 @@ public class DependencyTest
 	}
 
 	@Test
-	@Disabled
 	public void dependantCount() throws CircularDependencyException {
 		DependencyForest<String, String> dependencyForest = new DependencyForest<>();
 		Dependency X = new Dependency("X","X Dependency");
@@ -142,43 +135,29 @@ public class DependencyTest
 		DependencyForest<String, String> dependencyForest = new DependencyForest<>();
 		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
 
-		String jsons = "{\"dataKey\":\"X\",\"data\":\"X Dependency\",\"finished\":false,\"dependencies\":{\"Y\":{\"dataKey\":\"Y\",\"data\":\"Y Dependency\",\"finished\":false,\"dependencies\":null}}}";
+		String jsons = "{\"dataKey\":\"X\",\"data\":\"X Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"Y\",\"data\":\"Y Dependency\",\"finished\":false,\"dependencies\":[null]}]}";
 		Collection c = Dependency.fromJson(jsons);
 		Dependency t = ((ArrayList<Dependency>) c).get(0);
 		dependencyForest.addDependency(t);
-
-		System.out.println("====> GENERATED OBJECTS FROM JSON <====");
-		System.out.println("====> DEPENDANT TREE <====");
-		System.out.println(dependencyForest.toJson());
-
-		System.out.println("====> DEPENDENCY TREE <====");
 		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDENCIES);
-		System.out.println(dependencyForest.toJson());
-
 		assertEquals(1,t.getDependencies().size());
 		assertEquals(2, dependencyForest.size());
 		assertEquals(1, dependencyForest.getDependenciesWithNoDependencies().size());
 	}
 
 	@Test
-	public void bigJson() throws Exception {
+	public void bigJsonInOut() throws Exception {
 		DependencyForest<String, String> dependencyForest = new DependencyForest<>();
 		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDENCIES);
 
 		String bigJsons = "[{\"dataKey\":\"Z\",\"data\":\"Z Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"F\",\"data\":\"F Dependency\",\"finished\":false,\"dependencies\":[null]}]},{\"dataKey\":\"X\",\"data\":\"X Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"H\",\"data\":\"H Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"Q\",\"data\":\"Q Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]},{\"dataKey\":\"R\",\"data\":\"R Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]},{\"dataKey\":\"S\",\"data\":\"S Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]}]}]},{\"dataKey\":\"Y\",\"data\":\"Y Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"H\",\"data\":\"H Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"Q\",\"data\":\"Q Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]},{\"dataKey\":\"R\",\"data\":\"R Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]},{\"dataKey\":\"S\",\"data\":\"S Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]}]}]}]";
 		Collection<Dependency> newForest = Dependency.fromJson(bigJsons);
-		logger.info("new forest has leaf count: [" + newForest.size() + "]");
-		newForest.forEach(leaf -> System.out.println("Leaf is [" + leaf + "]"));
+
 		newForest.forEach(dep -> dependencyForest.addDependency(dep));
 
-		System.out.println("Forest size=[" + dependencyForest.size() + "]");
-		System.out.println("Trunk count=[" + dependencyForest.getDependenciesWithNoDependencies().size() + "]");
-		System.out.println("Leaf count=[" + dependencyForest.getOutermostLeafDependencies().size() + "]");
-
 		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDENCIES);
-		System.out.println(dependencyForest.toJson());
 
-		assertEquals(1, 1);
+		assertTrue(bigJsons.equals(dependencyForest.toJson()));
 	}
 
 

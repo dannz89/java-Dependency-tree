@@ -152,10 +152,24 @@ public class DependencyForest<K, V> {
     public String toJson() {
         StringBuffer sb = new StringBuffer();
         if (getSerializingScheme() == SerializingScheme.DEPENDANTS) {
-            dependenciesWithNoDependencies.forEach(dep -> sb.append(dep.toJson()));
+            sb.append("[");
+            boolean[] first = {true};
+            dependenciesWithNoDependencies.forEach(dep -> {
+                sb.append(((!first[0]) ? "," : "") + dep.toJson());
+                if (first[0]) first[0] = false;
+            });
+
+            sb.append("]");
         }
         if (getSerializingScheme() == SerializingScheme.DEPENDENCIES) {
-            outermostLeafDependencies.forEach(dep -> sb.append(dep.toJson()));
+            sb.append("[");
+            boolean[] first = {true};
+            outermostLeafDependencies.forEach(dep -> {
+                sb.append(((!first[0]) ? "," : "") + dep.toJson());
+                if (first[0]) first[0] = false;
+            });
+
+            sb.append("]");
         }
         return sb.toString();
     }
