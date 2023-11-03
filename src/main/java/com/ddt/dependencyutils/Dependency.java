@@ -15,6 +15,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
 
+/**
+ * TODO: Re-think equals method such that a more detailed comparison can be made than only the data key.
+ * At the moment, It's possible for two instances that share the same key to report equality. So if an object
+ * with the same key value, even if it's not an identical object ref, will report equal and fail the circular
+ * dependency check.
+ *
+ * @param <K>
+ * @param <V>
+ */
+
 @JsonSerialize(using = DependencySerializer.class)
 public class Dependency<K, V> {
     private final static Logger logger = LoggerFactory.getLogger(Dependency.class);
@@ -110,15 +120,10 @@ public class Dependency<K, V> {
     }
 
     public void setSerializingScheme(DependencyForest.SerializingScheme serializingScheme) {
-        logger.info("key=[" + getDataKey() + "], old serialzingScheme=[" + getSerializingScheme() + "], new serializingScheme=[" + serializingScheme + "]");
-
         this.serializingScheme = serializingScheme;
         if (hasDependencies()) {
             getDependencies().values().forEach(dep -> dep.setSerializingScheme(getSerializingScheme()));
         }
-        /*if(hasDependants()){
-            getDependants().values().forEach(dep-> dep.setSerializingScheme(getSerializingScheme()));
-        }*/
     }
 
     public void setFinished(boolean finished){
