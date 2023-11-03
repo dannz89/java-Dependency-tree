@@ -3,17 +3,25 @@ package com.ddt.dependencyutils;
 import com.ddt.dependencyutils.exception.CircularDependencyException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 
 public class DependencyDeserializer extends StdDeserializer<Collection<Dependency>> {
+    private final static Logger logger = LoggerFactory.getLogger(DependencyDeserializer.class);
     private DependencyForest.SerializingScheme serializingScheme = DependencyForest.SerializingScheme.DEPENDANTS;
+
     public DependencyDeserializer() {
         super(Collection.class);
     }
@@ -51,7 +59,12 @@ public class DependencyDeserializer extends StdDeserializer<Collection<Dependenc
     private Dependency parseSingleTree(JsonParser jp, DeserializationContext ctxt, JsonNode node)
             throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
-        String dataKey = node.get("dataKey").asText();
+
+        // The node itself can be != null even though it contains no data or children.
+        JsonNode interimDataKey = node.get("dataKey");
+        if (interimDataKey == null) return null;
+
+        String dataKey = interimDataKey.asText();
         String data = node.get("data").asText();
         boolean finished = node.get("finished").asBoolean();
 
@@ -61,10 +74,13 @@ public class DependencyDeserializer extends StdDeserializer<Collection<Dependenc
 
         JsonNode dependenciesNode = node.get("dependencies");
 
-        if (dependenciesNode != null) {
+        if (dependenciesNode != null && dependenciesNode.isArray()) {
+
             // Deserialize and add dependencies
             for (JsonNode dependencyNode : dependenciesNode) {
-                Dependency _dependency = objectMapper.treeToValue(dependencyNode, Dependency.class);
+
+                Dependency _dependency = parseSingleTree(jp, ctxt, dependencyNode);
+
                 try {
                     dependency.addDependency(_dependency);
                 } catch (CircularDependencyException e) {
@@ -73,7 +89,9 @@ public class DependencyDeserializer extends StdDeserializer<Collection<Dependenc
                     ctxt.reportInputMismatch(Dependency.class, "Circular reference exception adding [" + dependency.getDataKey() + "]");
                     e.printStackTrace();
                 }
+
             }
+
         }
         return dependency;
     }

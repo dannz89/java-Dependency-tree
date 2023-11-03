@@ -9,6 +9,8 @@ import com.ddt.dependencyutils.exception.CircularDependencyException;
 import com.fasterxml.jackson.core.*;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -18,6 +20,7 @@ import java.util.Collection;
 
 public class DependencyTest
 {
+	public final static Logger logger = LoggerFactory.getLogger(DependencyTest.class);
 	// Your test cases will go here.
 	@Test
 	public void testEqualsWithSameDataKey() {
@@ -160,21 +163,26 @@ public class DependencyTest
 	@Test
 	public void bigJson() throws Exception {
 		DependencyForest<String, String> dependencyForest = new DependencyForest<>();
-		String bigJsons = "{\"dataKey\":\"X\",\"data\":\"X Dependency\",\"finished\":false,\"dependencies\":{\"H\":{\"dataKey\":\"H\",\"data\":\"H Dependency\",\"finished\":false,\"dependencies\":{\"Q\":{\"dataKey\":\"Q\",\"data\":\"Q Dependency\",\"finished\":false,\"dependencies\":{\"A\":{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":{\"C\":{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":null},\"D\":{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":null},\"E\":{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":null}}}}},\"R\":{\"dataKey\":\"R\",\"data\":\"R Dependency\",\"finished\":false,\"dependencies\":{\"A\":{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":{\"C\":{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":null},\"D\":{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":null},\"E\":{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":null}}}}},\"S\":{\"dataKey\":\"S\",\"data\":\"S Dependency\",\"finished\":false,\"dependencies\":{\"A\":{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":{\"C\":{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":null},\"D\":{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":null},\"E\":{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":null}}}}}}}}}{\"dataKey\":\"Y\",\"data\":\"Y Dependency\",\"finished\":false,\"dependencies\":{\"H\":{\"dataKey\":\"H\",\"data\":\"H Dependency\",\"finished\":false,\"dependencies\":{\"Q\":{\"dataKey\":\"Q\",\"data\":\"Q Dependency\",\"finished\":false,\"dependencies\":{\"A\":{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":{\"C\":{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":null},\"D\":{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":null},\"E\":{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":null}}}}},\"R\":{\"dataKey\":\"R\",\"data\":\"R Dependency\",\"finished\":false,\"dependencies\":{\"A\":{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":{\"C\":{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":null},\"D\":{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":null},\"E\":{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":null}}}}},\"S\":{\"dataKey\":\"S\",\"data\":\"S Dependency\",\"finished\":false,\"dependencies\":{\"A\":{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":{\"C\":{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":null},\"D\":{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":null},\"E\":{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":null}}}}}}}}}{\"dataKey\":\"Z\",\"data\":\"Z Dependency\",\"finished\":false,\"dependencies\":{\"F\":{\"dataKey\":\"F\",\"data\":\"F Dependency\",\"finished\":false,\"dependencies\":null}}}";
-		Collection<Dependency> newForest = Dependency.fromJson(bigJsons);
-		newForest.forEach(dep -> dependencyForest.addDependency(dep));
-		System.out.println("===> NEW FOREST FROM JSON <===");
 		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDENCIES);
-		System.out.println(dependencyForest.toJson());
+
+		String bigJsons = "[{\"dataKey\":\"Z\",\"data\":\"Z Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"F\",\"data\":\"F Dependency\",\"finished\":false,\"dependencies\":[null]}]},{\"dataKey\":\"X\",\"data\":\"X Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"H\",\"data\":\"H Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"Q\",\"data\":\"Q Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]},{\"dataKey\":\"R\",\"data\":\"R Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]},{\"dataKey\":\"S\",\"data\":\"S Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]}]}]},{\"dataKey\":\"Y\",\"data\":\"Y Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"H\",\"data\":\"H Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"Q\",\"data\":\"Q Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]},{\"dataKey\":\"R\",\"data\":\"R Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]},{\"dataKey\":\"S\",\"data\":\"S Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"A\",\"data\":\"A Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"C\",\"data\":\"C Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"D\",\"data\":\"D Dependency\",\"finished\":false,\"dependencies\":[null]},{\"dataKey\":\"E\",\"data\":\"E Dependency\",\"finished\":false,\"dependencies\":[null]}]}]}]}]}]";
+		Collection<Dependency> newForest = Dependency.fromJson(bigJsons);
+		logger.info("new forest has leaf count: [" + newForest.size() + "]");
+		newForest.forEach(leaf -> System.out.println("Leaf is [" + leaf + "]"));
+		newForest.forEach(dep -> dependencyForest.addDependency(dep));
+
 		System.out.println("Forest size=[" + dependencyForest.size() + "]");
 		System.out.println("Trunk count=[" + dependencyForest.getDependenciesWithNoDependencies().size() + "]");
 		System.out.println("Leaf count=[" + dependencyForest.getOutermostLeafDependencies().size() + "]");
+
+		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDENCIES);
+		System.out.println(dependencyForest.toJson());
+
 		assertEquals(1, 1);
 	}
 
 
 	@Test
-	@Disabled
 	public void testAllTreesToStringsCount() throws CircularDependencyException {
 		//C             Q               X
 		//D ->  A   ->  R   ->  H   ->  Y

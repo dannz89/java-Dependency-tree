@@ -11,10 +11,13 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
 
 @JsonSerialize(using = DependencySerializer.class)
 public class Dependency<K, V> {
+    private final static Logger logger = LoggerFactory.getLogger(Dependency.class);
     @JsonProperty("dataKey")
     private K dataKey;
     @JsonProperty("data")
@@ -27,6 +30,10 @@ public class Dependency<K, V> {
     private boolean finished = false;
     @JsonIgnore
     private boolean isADependency = false;
+
+    public DependencyForest getDependencyForest() {
+        return dependencyForest;
+    }
 
     @JsonIgnore
     private DependencyForest dependencyForest;
@@ -51,6 +58,9 @@ public class Dependency<K, V> {
     }
 
     private void addDependant(Dependency<K,V> dependant){
+        if (this.hasForest()) {
+            dependant.setDependencyForest(getDependencyForest());
+        }
         if(this.dependants==null){
             this.dependants = new HashMap<>();
         }
@@ -85,6 +95,8 @@ public class Dependency<K, V> {
         dependency.addDependant(this);
         // We now have dependencies.
         if (hasForest()) {
+            dependency.setDependencyForest(dependencyForest);
+            dependency.setSerializingScheme(dependencyForest.getSerializingScheme());
             dependencyForest.updateAllDependencies();
         }
     }
@@ -98,7 +110,15 @@ public class Dependency<K, V> {
     }
 
     public void setSerializingScheme(DependencyForest.SerializingScheme serializingScheme) {
+        logger.info("key=[" + getDataKey() + "], old serialzingScheme=[" + getSerializingScheme() + "], new serializingScheme=[" + serializingScheme + "]");
+
         this.serializingScheme = serializingScheme;
+        if (hasDependencies()) {
+            getDependencies().values().forEach(dep -> dep.setSerializingScheme(getSerializingScheme()));
+        }
+        /*if(hasDependants()){
+            getDependants().values().forEach(dep-> dep.setSerializingScheme(getSerializingScheme()));
+        }*/
     }
 
     public void setFinished(boolean finished){

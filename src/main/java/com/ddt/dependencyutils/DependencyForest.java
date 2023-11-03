@@ -49,7 +49,10 @@ public class DependencyForest<K, V> {
      */
     public void setSerializingScheme(SerializingScheme serializingScheme) {
         this.serializingScheme = serializingScheme;
-        allNodes.forEach((k, v) -> v.setSerializingScheme(this.serializingScheme));
+        allNodes.values().forEach(v -> {
+            logger.info("Setting scheme on [" + v + "] to [" + getSerializingScheme() + "]");
+            v.setSerializingScheme(getSerializingScheme());
+        });
     }
 
     /**
@@ -92,7 +95,8 @@ public class DependencyForest<K, V> {
             return;
         }
 
-        logger.info("Adding dependency: [" + dependency + "]");
+        logger.info("Adding dependency: [" + dependency + "] for the first time.");
+
 
         dependency.setDependencyForest(this);
         dependency.setSerializingScheme(getSerializingScheme());
@@ -120,10 +124,12 @@ public class DependencyForest<K, V> {
             outermostLeafDependencies.remove(dependency);
         if (!dependency.hasDependants() && !outermostLeafDependencies.contains(dependency))
             outermostLeafDependencies.add(dependency);
+
+        dependency.setSerializingScheme(getSerializingScheme());
     }
 
     public void updateAllDependencies() {
-        allNodes.values().forEach(dep -> updateDependency(dep));
+        allNodes.values().forEach(node -> updateDependency(node));
     }
 
     public List<Dependency<K, V>> getOutermostLeafDependencies() {
@@ -152,6 +158,10 @@ public class DependencyForest<K, V> {
             outermostLeafDependencies.forEach(dep -> sb.append(dep.toJson()));
         }
         return sb.toString();
+    }
+
+    public Map<K, Dependency<K, V>> getAllNodes() {
+        return allNodes;
     }
 
     /**
