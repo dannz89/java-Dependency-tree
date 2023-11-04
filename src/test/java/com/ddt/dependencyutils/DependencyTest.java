@@ -1,11 +1,6 @@
 package com.ddt.dependencyutils;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import com.ddt.dependencyutils.exception.CircularDependencyException;
-
 
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -14,18 +9,45 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 public class DependencyTest
 {
 	public final static Logger logger = LoggerFactory.getLogger(DependencyTest.class);
-	// Your test cases will go here.
+
+	@Test
+	public void equality() {
+		Dependency<String, String> dep1 = new Dependency<>("1", "Dep 1");
+		Dependency<String, String> dep2 = new Dependency<>("1", "Dep 1");
+		dep1.setFinished(true);
+		dep2.setFinished(true);
+		assertEquals(dep1, dep2);
+		dep2.setFinished(false);
+		assertNotEquals(dep1, dep2);
+		dep1.setFinished(false);
+		assertEquals(dep1, dep2);
+	}
+
 	@Test
 	public void testEqualsWithSameDataKey() {
 
 		Dependency<String, String> dependency1 = new Dependency<>("One", "Apple");
 		Dependency<String, String> dependency2 = new Dependency<>("One", "Bat");
 		Dependency dRef = dependency1;
-		assertTrue(dependency1.equals(dependency2));
+		assertFalse(dependency1.equals(dependency2));
 		assertTrue(dRef.equals(dependency1));
+	}
+
+	@Test
+	public void whenForestHasSameKeyWithDifferentValue_thenAddAgain() throws CircularDependencyException {
+		DependencyForest<String, String> theNewForest = new DependencyForest<>();
+
+		Dependency dep1 = new Dependency("Dep 1", "I am the original!");
+		Dependency imposterDep = new Dependency("Dep 1", "Imposter.");
+		theNewForest.addDependency(dep1);
+		theNewForest.addDependency(imposterDep);
+		Dependency theTruth = theNewForest.getAllNodes().get("Dep 1");
+		assertEquals(theTruth, imposterDep);
 	}
 
 	@Test
@@ -38,13 +60,9 @@ public class DependencyTest
 		DependencyB.addDependency(DependencyA);
 
 		dependencyForest.addDependency(DependencyA);
-		System.out.println("===> DEPENDANTS IN DUPLICATE TEST <===");
 		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
-		System.out.println(dependencyForest.toJson());
 
-		System.out.println("===> DEPENDENCIES IN DUPLICATE TEST <===");
 		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDENCIES);
-		System.out.println(dependencyForest.toJson());
 		assertEquals(1,DependencyB.getDependencies().size());
 		assertEquals(1,DependencyA.getDependants().size());
 	}

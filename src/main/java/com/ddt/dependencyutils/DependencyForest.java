@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Dependency-aware container class for root nodes of multiple dependency trees.
@@ -31,9 +33,9 @@ public class DependencyForest<K, V> {
      *
      */
     public DependencyForest() {
-        outermostLeafDependencies = new ArrayList<>();
-        dependenciesWithNoDependencies = new ArrayList<>();
-        allNodes = new HashMap<>();
+        outermostLeafDependencies = new CopyOnWriteArrayList<>();
+        dependenciesWithNoDependencies = new CopyOnWriteArrayList<>();
+        allNodes = new ConcurrentHashMap<>();
     }
 
     /**
@@ -50,7 +52,6 @@ public class DependencyForest<K, V> {
     public void setSerializingScheme(SerializingScheme serializingScheme) {
         this.serializingScheme = serializingScheme;
         allNodes.values().forEach(v -> {
-            logger.info("Setting scheme on [" + v + "] to [" + getSerializingScheme() + "]");
             v.setSerializingScheme(getSerializingScheme());
         });
     }
@@ -86,17 +87,10 @@ public class DependencyForest<K, V> {
     }
 
     public void addDependency(Dependency<K, V> dependency) {
-        /**
-         * This is likely to happen a lot so try to make it quicker.
-         */
         if (allNodes != null
                 && allNodes.containsValue(dependency)) {
-            logger.info("Dependency [" + dependency + "] already added.");
             return;
         }
-
-        logger.info("Adding dependency: [" + dependency + "] for the first time.");
-
 
         dependency.setDependencyForest(this);
         dependency.setSerializingScheme(getSerializingScheme());

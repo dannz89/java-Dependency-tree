@@ -1,6 +1,7 @@
 package com.ddt.dependencyutils;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.ddt.dependencyutils.exception.CircularDependencyException;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -60,9 +61,6 @@ public class Dependency<K, V> {
     @JsonCreator
     public Dependency(@JsonProperty("dataKey") K dataKey, @JsonProperty("data") V data) {
         this();
-        if(dataKey == null) {
-            throw new NullPointerException("Dependency key cannot be null");
-        }
         this.dataKey = dataKey;
         this.data = data;
     }
@@ -72,7 +70,7 @@ public class Dependency<K, V> {
             dependant.setDependencyForest(getDependencyForest());
         }
         if(this.dependants==null){
-            this.dependants = new HashMap<>();
+            this.dependants = new ConcurrentHashMap<>();
         }
         this.dependants.put(dependant.getDataKey(),dependant);
     }
@@ -92,7 +90,7 @@ public class Dependency<K, V> {
 
         // If we get here, we didn't throw a CircularReferenceException so the new dependency is valid.
         if (dependencies == null) {
-            dependencies = new HashMap<K, Dependency<K, V>>();
+            dependencies = new ConcurrentHashMap<K, Dependency<K, V>>();
         }
 
         // Save time if it's already been added.
@@ -133,12 +131,23 @@ public class Dependency<K, V> {
         return this.finished;
     }
 
+    /**
+     * Returns true if dependency is an instance of Dependency and the contents of its dataKey and
+     *
+     * @param dependency
+     * @return
+     */
     @Override
     public boolean equals(Object dependency) {
         if(this == dependency) return true;
         if(dependency == null || getClass() != dependency.getClass()) return false;
         Dependency<?,?> that = (Dependency<?,?>)dependency;
-        return dataKey != null ? dataKey.equals(that.dataKey) : that.dataKey == null;
+
+        if (!Objects.equals(dataKey, that.dataKey)) return false;
+
+        if ((finished != that.finished)) return false;
+
+        return Objects.equals(data, that.data);
     }
 
     public DependencyForest.SerializingScheme getSerializingScheme() {
@@ -265,7 +274,7 @@ public class Dependency<K, V> {
 
     @Override
     public String toString() {
-        return this.dataKey.toString();
+        return this.toJson();
     }
 
     public String dependantTreeToString(){
