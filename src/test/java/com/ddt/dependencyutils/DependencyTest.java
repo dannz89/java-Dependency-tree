@@ -122,13 +122,9 @@ public class DependencyTest
 		// Dependant Tree now looks like this:
 		//  X
 		//  Y
-		System.out.println("\n====> DEPENDANT COUNT TEST - PRINTING WHOLE DEPENDANT TREE <====\n");
-		System.out.println(dependencyForest.toJson());
-
 		assertEquals(2, dependencyForest.getDependenciesWithNoDependencies().size());
 		assertEquals(2, dependencyForest.getOutermostLeafDependencies().size());
 		assertEquals(2, dependencyForest.size());
-		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
 
 		X.addDependency(Y);
 		// Dependant tree now looks like this:
@@ -136,16 +132,6 @@ public class DependencyTest
 		assertEquals(1, dependencyForest.getDependenciesWithNoDependencies().size());
 		assertEquals(1, dependencyForest.getOutermostLeafDependencies().size());
 		assertEquals(2, dependencyForest.size());
-		System.out.println(dependencyForest.toJson());
-
-		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDENCIES);
-		System.out.println("\n====> PRINTING WHOLE DEPENDANT TREE <====\n");
-		System.out.println(dependencyForest.toJson());
-
-		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
-
-		System.out.println("\n====> PRINTING WHOLE DEPENDENCY TREE <====\n");
-		System.out.println(dependencyForest.toJson());
 	}
 
 	@Test
@@ -157,7 +143,7 @@ public class DependencyTest
 		Collection c = Dependency.fromJson(jsons);
 		Dependency t = ((ArrayList<Dependency>) c).get(0);
 		dependencyForest.addDependency(t);
-		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDENCIES);
+
 		assertEquals(1,t.getDependencies().size());
 		assertEquals(2, dependencyForest.size());
 		assertEquals(1, dependencyForest.getDependenciesWithNoDependencies().size());
@@ -216,39 +202,14 @@ public class DependencyTest
 		dependencyH.addDependency(dependencyS);
 
 		dependencyX.addDependency(dependencyH);
-		System.out.println("===> H <===");
-		System.out.println("===> H DEPENDENCIES <===");
-		System.out.println(dependencyH.dependantTreeToString());
-		System.out.println("===> H DEPENDANTS <===");
-		System.out.println(dependencyH.treeToString());
-
-		System.out.println("===> X <===");
-		System.out.println("===> X DEPENDENCIES <===");
-		System.out.println(dependencyX.dependantTreeToString());
-		System.out.println("===> X DEPENDANTS <===");
-		System.out.println(dependencyX.treeToString());
 
 		dependencyY.addDependency(dependencyH);
-		System.out.println("===> Y <===");
-		System.out.println("===> Y DEPENDENCIES <===");
-		System.out.println(dependencyY.dependantTreeToString());
-		System.out.println("===> Y DEPENDANTS <===");
-		System.out.println(dependencyY.treeToString());
 
 		dependencyForest.addDependency(dependencyZ);
 		dependencyForest.addDependency(dependencyX);
 		dependencyForest.addDependency(dependencyY);
 
 		dependencyForest.updateAllDependencies();
-
-		System.out.println("\n===> PRINTING WHOLE DEPENDENCY TREE <===");
-		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDENCIES);
-		System.out.println(dependencyForest.toJson());
-
-		System.out.println("\n====> PRINTING WHOLE DEPENDANT TREE <====\n");
-		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
-
-		System.out.println(dependencyForest.toJson());
 
 		assertEquals(12, dependencyForest.size());
 		assertEquals(3, dependencyForest.getOutermostLeafDependencies().size());
