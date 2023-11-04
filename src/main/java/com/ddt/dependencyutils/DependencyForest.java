@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -87,10 +86,7 @@ public class DependencyForest<K, V> {
     }
 
     public void addDependency(Dependency<K, V> dependency) {
-        if (allNodes != null
-                && allNodes.containsValue(dependency)) {
-            return;
-        }
+        if (allNodes.values().stream().anyMatch(val -> val.equals(dependency))) return;
 
         dependency.setDependencyForest(this);
         dependency.setSerializingScheme(getSerializingScheme());
@@ -149,7 +145,7 @@ public class DependencyForest<K, V> {
             sb.append("[");
             boolean[] first = {true};
             dependenciesWithNoDependencies.forEach(dep -> {
-                sb.append(((!first[0]) ? "," : "") + dep.toJson());
+                sb.append((!first[0]) ? "," : "").append(dep.toJson());
                 if (first[0]) first[0] = false;
             });
 
@@ -159,7 +155,7 @@ public class DependencyForest<K, V> {
             sb.append("[");
             boolean[] first = {true};
             outermostLeafDependencies.forEach(dep -> {
-                sb.append(((!first[0]) ? "," : "") + dep.toJson());
+                sb.append((!first[0]) ? "," : "").append(dep.toJson());
                 if (first[0]) first[0] = false;
             });
 
@@ -178,17 +174,17 @@ public class DependencyForest<K, V> {
      * @return
      */
     public ArrayList<String> allTreesToStrings() {
-        ArrayList<String> trees = new ArrayList();
+        ArrayList<String> trees = new ArrayList<>();
 
         switch (getSerializingScheme()) {
             case DEPENDANTS -> {
-                if (dependenciesWithNoDependencies == null || dependenciesWithNoDependencies.size() == 0) break;
+                if (dependenciesWithNoDependencies == null || dependenciesWithNoDependencies.isEmpty()) break;
                 for (Dependency<K, V> dependency : dependenciesWithNoDependencies) {
                     trees.add(dependency.dependantTreeToString());
                 }
             }
             case DEPENDENCIES -> {
-                if (outermostLeafDependencies == null || outermostLeafDependencies.size() == 0) break;
+                if (outermostLeafDependencies == null || outermostLeafDependencies.isEmpty()) break;
                 for (Dependency<K, V> dependency : outermostLeafDependencies) {
                     trees.add(dependency.treeToString());
                 }

@@ -33,20 +33,20 @@ public class DependencyTest
 
 		Dependency<String, String> dependency1 = new Dependency<>("One", "Apple");
 		Dependency<String, String> dependency2 = new Dependency<>("One", "Bat");
-		Dependency dRef = dependency1;
-		assertFalse(dependency1.equals(dependency2));
-		assertTrue(dRef.equals(dependency1));
+		Dependency<String, String> dRef = dependency1;
+		assertNotEquals(dependency1, dependency2);
+		assertEquals(dRef, dependency1);
 	}
 
 	@Test
 	public void whenForestHasSameKeyWithDifferentValue_thenAddAgain() throws CircularDependencyException {
 		DependencyForest<String, String> theNewForest = new DependencyForest<>();
 
-		Dependency dep1 = new Dependency("Dep 1", "I am the original!");
-		Dependency imposterDep = new Dependency("Dep 1", "Imposter.");
+		Dependency<String, String> dep1 = new Dependency<>("Dep 1", "I am the original!");
+		Dependency<String, String> imposterDep = new Dependency<>("Dep 1", "Imposter.");
 		theNewForest.addDependency(dep1);
 		theNewForest.addDependency(imposterDep);
-		Dependency theTruth = theNewForest.getAllNodes().get("Dep 1");
+		Dependency<String, String> theTruth = theNewForest.getAllNodes().get("Dep 1");
 		assertEquals(theTruth, imposterDep);
 	}
 
@@ -109,14 +109,14 @@ public class DependencyTest
 				CircularDependencyException.class,
 				() -> DependencyA.addDependency(DependencyQ));
 
-		assertTrue(thrown instanceof CircularDependencyException);
+		assertTrue(thrown != null);
 	}
 
 	@Test
 	public void dependantCount() throws CircularDependencyException {
 		DependencyForest<String, String> dependencyForest = new DependencyForest<>();
-		Dependency X = new Dependency("X","X Dependency");
-		Dependency Y = new Dependency("Y","Y Dependency");
+		Dependency<String, String> X = new Dependency<>("X", "X Dependency");
+		Dependency<String, String> Y = new Dependency<>("Y", "Y Dependency");
 		dependencyForest.addDependency(X);
 		dependencyForest.addDependency(Y);
 		// Dependant Tree now looks like this:
@@ -135,13 +135,13 @@ public class DependencyTest
 	}
 
 	@Test
-	public void fromJsonTest() throws Exception {
+	public void smallJsonToObjects() throws Exception {
 		DependencyForest<String, String> dependencyForest = new DependencyForest<>();
 		dependencyForest.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
 
 		String jsons = "{\"dataKey\":\"X\",\"data\":\"X Dependency\",\"finished\":false,\"dependencies\":[{\"dataKey\":\"Y\",\"data\":\"Y Dependency\",\"finished\":false,\"dependencies\":[null]}]}";
-		Collection c = Dependency.fromJson(jsons);
-		Dependency t = ((ArrayList<Dependency>) c).get(0);
+		Collection<Dependency> c = Dependency.fromJson(jsons);
+		Dependency<String, String> t = ((ArrayList<Dependency>) c).get(0);
 		dependencyForest.addDependency(t);
 
 		assertEquals(1,t.getDependencies().size());

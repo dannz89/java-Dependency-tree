@@ -157,16 +157,16 @@ public class Dependency<K, V> {
     /**
      * Tests whether this Dependency has any parent or ancestor Dependency with dataKey.equals(key)
      *
-     * @param key
+     * @param dependant
      * @return
      */
-    public boolean hasDependant(K key) {
+    public boolean hasDependant(Dependency<K, V> dependant) {
         if (!hasDependants()) return false;
 
-        if (getDependants().containsKey(key)) return true;
+        if (getDependants().values().stream().anyMatch(val -> val.equals(dependant))) return true;
 
-        for (Dependency dependant : getDependants().values()) {
-            if (dependant.hasDependant(key)) {
+        for (Dependency _dependant : getDependants().values()) {
+            if (dependant.hasDependant(_dependant)) {
                 return true;
             }
         }
@@ -176,37 +176,38 @@ public class Dependency<K, V> {
     /**
      * Tests if this Dependency has any parent or ancestor dependency with dataKey.equals(key).
      *
-     * @param key
+     * @param dependency
      * @return
      */
-    public boolean hasDependency(K key) {
+    public boolean hasDependency(Dependency<K, V> dependency) {
         if (!hasDependencies()) return false;
 
-        if (getDependencies().containsKey(key)) return true;
+        if (getDependencies().values().stream().anyMatch(value -> value.equals(dependency))) return true;
 
-        for (Dependency dependency : getDependencies().values()) {
-            if (dependency.hasDependency(key)) {
+        for (Dependency _dependency : getDependencies().values()) {
+            if (dependency.hasDependency(_dependency)) {
                 return true;
             }
         }
+
         return false;
     }
 
     /**
      * Traverses the dependency tree and returns the node with getDataKey().equals(key) else null if not found.
      *
-     * @param key
+     * @param dependency
      * @return
      */
-    public Dependency<K, V> getDependency(K key) {
-        if (!hasDependency(key)) return null;
+    public Dependency<K, V> getDependency(Dependency<K, V> dependency) {
+        if (!hasDependency(dependency)) return null;
 
-        if (getDependencies().containsKey(key)) {
-            return getDependencies().get(key);
+        if (getDependencies().containsKey(dependency.getDataKey())) {
+            return getDependencies().get(dependency.getDataKey());
         }
 
-        for (Dependency dependency : getDependencies().values()) {
-            return dependency.getDependency(key);
+        for (Dependency _dependency : getDependencies().values()) {
+            return dependency.getDependency(_dependency);
         }
 
         //Should never get here.
@@ -217,18 +218,18 @@ public class Dependency<K, V> {
      * Traverses the dependants tree of this Dependency and returns the node with getDataKey().equals(key) else
      * null if not found.
      *
-     * @param key
+     * @param dependant
      * @return
      */
-    public Dependency<K, V> getDependant(K key) {
-        if (!hasDependant(key)) return null;
+    public Dependency<K, V> getDependant(Dependency<K, V> dependant) {
+        if (!hasDependant(dependant)) return null;
 
-        if (getDependants().containsKey(key)) {
-            return getDependants().get(key);
+        if (getDependants().containsKey(dependant.getDataKey())) {
+            return getDependants().get(getDataKey());
         }
 
-        for (Dependency dependant : getDependants().values()) {
-            return dependant.getDependant(key);
+        for (Dependency _dependant : getDependants().values()) {
+            return dependant.getDependant(_dependant);
         }
 
         //Should never get here.
