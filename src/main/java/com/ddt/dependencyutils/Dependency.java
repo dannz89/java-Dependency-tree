@@ -402,12 +402,6 @@ public class Dependency<K, V> {
         if (newDependency == dependantDependency) throw new CircularDependencyException(newDependency);
 
         // Stop right there. We are trying to add a Dependency to ourselves which already has ourselves as a dependency.
-        logger.info("first=[first], dependant=["
-                + dependantDependency.getDataKey()
-                + "], new=["
-                + newDependency.getDataKey()
-                + "], new.hasDeps=[" + newDependency.hasDependencies()
-                + "], new.hasDependantDep=[" + newDependency.hasDependency(dependantDependency) + "].");
         if (first
                 && newDependency.hasDependencies()
                 && newDependency.hasDependency(dependantDependency))

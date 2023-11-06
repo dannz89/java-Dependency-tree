@@ -33,7 +33,7 @@ public class DependencyTest
 		d2.addDependency(d1);
 
 		d4.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDENCIES);
-		logger.info(d4.treeToString());
+		logger.debug(d4.treeToString());
 		assertEquals(d1, d1);
 
 		// So now we should hurl.
@@ -42,7 +42,7 @@ public class DependencyTest
 				() -> d1.addDependency(d4));
 
 		assertTrue(thrown != null);
-		logger.info(d4.treeToString());
+		logger.debug(d4.treeToString());
 
 		// But this should be ok.
 		assertDoesNotThrow(() -> d2.addDependency(d1));
