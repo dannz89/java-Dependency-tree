@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -166,6 +167,20 @@ public class DependencyForest<K, V> {
 
     public Map<K, Dependency<K, V>> getAllNodes() {
         return allNodes;
+    }
+
+    public Dependency<K, V> get(Dependency<K, V> _candiate) {
+        return hasDependency(_candiate) ? getDependency(_candiate) : null;
+    }
+
+    public Dependency<K, V> getDependency(Dependency dependency) {
+        if (!hasDependency(dependency)) return null;
+        return allNodes.get(dependency.getDataKey());
+    }
+
+
+    public boolean hasDependency(Dependency dependency) {
+        return allNodes.values().stream().anyMatch(val -> val.equals(dependency));
     }
 
     /**

@@ -16,6 +16,63 @@ public class DependencyTest
 	public final static Logger logger = LoggerFactory.getLogger(DependencyTest.class);
 
 	@Test
+	public void reAddDependency() throws CircularDependencyException {
+		Dependency<Integer, String> d1 = new Dependency<>(1, "d1 data");
+		Dependency<Integer, String> d2 = new Dependency<>(2, "d2 data");
+		Dependency<Integer, String> d3 = new Dependency<>(3, "d3 data");
+		Dependency<Integer, String> d4 = new Dependency<>(4, "d4 data");
+
+		// D4 ultimately depends on D1
+		// D4->D1
+		//	D2
+		//		D3
+		//			D4
+		//
+		d4.addDependency(d3);
+		d3.addDependency(d2);
+		d2.addDependency(d1);
+
+		d4.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDENCIES);
+		logger.info(d4.treeToString());
+		assertEquals(d1, d1);
+
+		// So now we should hurl.
+		CircularDependencyException thrown = assertThrows(
+				CircularDependencyException.class,
+				() -> d1.addDependency(d4));
+
+		assertTrue(thrown != null);
+		logger.info(d4.treeToString());
+
+		// But this should be ok.
+		assertDoesNotThrow(() -> d2.addDependency(d1));
+	}
+
+	@Test
+	public void hasAndGetAndOptionalTests() {
+		Dependency<Integer, String> dep1 = new Dependency<>(1, "dep 1");
+		Dependency<Integer, String> dep2 = new Dependency<>(1, "dep 1");
+		Dependency<Integer, String> dep3 = new Dependency<>(3, "dep 3");
+
+		DependencyForest<Integer, String> forest = new DependencyForest<>();
+		forest.addDependency(dep1);
+		assertEquals(dep1, dep2);
+		forest.addDependency(dep2);
+		assertEquals(1, forest.size());
+		assertTrue(forest.hasDependency(dep2));
+		forest.addDependency(dep3);
+		assertEquals(2, forest.size());
+		try {
+			dep3.addDependency(dep1);
+		} catch (Exception e) {
+		}
+		;
+		assertEquals(1, forest.getDependenciesWithNoDependencies().size());
+		assertEquals(1, forest.getOutermostLeafDependencies().size());
+		Dependency<Integer, String> dep4 = new Dependency<>(4, "Dep 4");
+		assertNull(forest.get(dep4));
+	}
+	@Test
 	public void equality() {
 		Dependency<String, String> dep1 = new Dependency<>("1", "Dep 1");
 		Dependency<String, String> dep2 = new Dependency<>("1", "Dep 1");

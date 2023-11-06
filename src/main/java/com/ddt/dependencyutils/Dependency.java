@@ -101,6 +101,7 @@ public class Dependency<K, V> {
 
         dependency.setIsADependency(true);
         dependency.addDependant(this);
+
         // We now have dependencies.
         if (hasForest()) {
             dependency.setDependencyForest(dependencyForest);
@@ -185,7 +186,7 @@ public class Dependency<K, V> {
         if (getDependencies().values().stream().anyMatch(value -> value.equals(dependency))) return true;
 
         for (Dependency _dependency : getDependencies().values()) {
-            if (dependency.hasDependency(_dependency)) {
+            if (_dependency.hasDependency(dependency)) {
                 return true;
             }
         }
@@ -374,6 +375,16 @@ public class Dependency<K, V> {
     }
     public Map<K, Dependency<K,V>> getDependants(){ return this.dependants; }
 
+    /**
+     * @param dependant
+     * @param newDependency
+     * @throws CircularDependencyException
+     */
+    private void validateNewDependency(Dependency<K, V> dependant, Dependency<K, V> newDependency)
+            throws CircularDependencyException {
+        validateNewDependency(dependant, newDependency, true);
+    }
+
 
     /**
      * This checks for circular dependencies from the node being added downwards. But it serves as an overall
@@ -384,17 +395,31 @@ public class Dependency<K, V> {
      */
     private void validateNewDependency(
             Dependency<K, V> dependantDependency,
-            Dependency<K, V> newDependency)
-            throws CircularDependencyException {
+            Dependency<K, V> newDependency,
+            boolean first)
+    throws CircularDependencyException {
         // Trying to add itself as a dependency. Circular reference.
         if (newDependency == dependantDependency) throw new CircularDependencyException(newDependency);
 
-        // No further dependency hierarchy to check.
-        if(!newDependency.hasDependencies()) return;
+        // Stop right there. We are trying to add a Dependency to ourselves which already has ourselves as a dependency.
+        logger.info("first=[first], dependant=["
+                + dependantDependency.getDataKey()
+                + "], new=["
+                + newDependency.getDataKey()
+                + "], new.hasDeps=[" + newDependency.hasDependencies()
+                + "], new.hasDependantDep=[" + newDependency.hasDependency(dependantDependency) + "].");
+        if (first
+                && newDependency.hasDependencies()
+                && newDependency.hasDependency(dependantDependency))
+            throw new CircularDependencyException(newDependency);
 
-        for(K _dependencyKey : newDependency.getDependencies().keySet()) {
-            validateNewDependency(dependantDependency,newDependency.getDependencies().get(_dependencyKey));
-        }
+        // It's ok to re-add a dependency, although it will overwrite the original.
+        if (first && dependantDependency.hasDependencies()
+                && dependantDependency.getDependencies().values().stream().anyMatch(dep -> dep.equals(newDependency)))
+            return;
+
+        // If we get here then it's definitely a circular dependency because the new dependency is an ancestor dependency.
+        if (dependantDependency.hasDependency(newDependency)) throw new CircularDependencyException(newDependency);
     }
 }
 
