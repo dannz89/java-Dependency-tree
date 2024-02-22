@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -18,11 +18,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public class DependencyForest<K, V> {
     private final static Logger logger = LoggerFactory.getLogger(DependencyForest.class);
-    private boolean serializeDependencies = false;
     private List<Dependency<K, V>> outermostLeafDependencies;
     private List<Dependency<K, V>> dependenciesWithNoDependencies;
 
     private Map<K, Dependency<K, V>> allNodes;
+
+    private String name;
 
     public enum SerializingScheme {DEPENDENCIES, DEPENDANTS}
 
@@ -64,17 +65,48 @@ public class DependencyForest<K, V> {
     }
 
     /**
+     * Returns the number of Dependency objects stored in this DependencyForest.
      * @return
      */
     public int size() {
         return allNodes.size();
     }
 
+    /**
+     * Setes a user-friendly label for this DependencyForest.
+     *
+     * @return
+     */
+    public String getName() {
+        return this.name;
+    }
 
+    /**
+     * Returns the user-friendly name of this DependencyForest
+     *
+     * @param name
+     */
+    public void setName(String name) {
+        this.name = name;
+    }
+
+
+    /**
+     * If this DependencyForest contains a dependency with dataKey.equals(key). Not this is not the same as
+     * the get method which returns the reference to the Dependency Object exactly matching the one supplied
+     * in the method parameter.
+     * @param key
+     * @return
+     */
     public boolean containsKey(K key) {
         return (allNodes != null && allNodes.containsKey(key));
     }
 
+    /**
+     * Retrieves the Dependency with the key matching the value of the key param.
+     * @param key
+     * @return Dependency or null
+     */
     public Dependency<K, V> get(K key) {
         if (allNodes != null && containsKey(key)) {
             return allNodes.get(key);
@@ -82,10 +114,19 @@ public class DependencyForest<K, V> {
         return null;
     }
 
-    public Map<K, Dependency<K, V>> getAllTrees() {
-        return allNodes;
+    /**
+     * Returns a List<Dependency<K,V>> of the roots or leaf Dependencies according to getSerializingScheme().
+     *
+     * @return
+     */
+    public List<Dependency<K, V>> getAllTrees() {
+        return (getSerializingScheme() == SerializingScheme.DEPENDANTS) ? getDependenciesWithNoDependencies() : this.getOutermostLeafDependencies();
     }
 
+    /**
+     * Adds a new dependency to the forest.
+     * @param dependency
+     */
     public void addDependency(Dependency<K, V> dependency) {
         if (allNodes.values().stream().anyMatch(val -> val.equals(dependency))) return;
 
@@ -94,25 +135,30 @@ public class DependencyForest<K, V> {
         allNodes.put(dependency.getDataKey(), dependency);
         updateAllDependencies();
 
-        /**
-         *  Add all nodes found in both the dependencies and dependants directions. This may mean surplus calls
-         *  to add are made if nodes being added share common dependencies / dependants but see above.
-         */
-        if (dependency.hasDependants()) dependency.getDependants().values().forEach(dep -> addDependency(dep));
-        if (dependency.hasDependencies()) dependency.getDependencies().values().forEach(dep -> addDependency(dep));
+
+        //Add all nodes found in both the dependencies and dependants directions. This may mean surplus calls
+        //to add are made if nodes being added share common dependencies / dependants but see above.
+        if (dependency.hasDependants()) dependency.getDependants().values().forEach(this::addDependency);
+        if (dependency.hasDependencies()) dependency.getDependencies().values().forEach(this::addDependency);
     }
 
+    /**
+     * This method maintains the lists of root and outermost leaf dependencies, checking all dependencies
+     * to see whether they belong in either list, removing them if they no longer do and adding them if they
+     * do.
+     * @param dependency
+     */
     public void updateDependency(Dependency<K, V> dependency) {
         if (!containsKey(dependency.getDataKey())) return;
 
         // There is probably a much nicer way of doing all this too rather than just forcing it.
-        if (dependency.hasDependencies() && dependenciesWithNoDependencies.contains(dependency))
-            dependenciesWithNoDependencies.remove(dependency);
+        if (dependency.hasDependencies()) dependenciesWithNoDependencies.remove(dependency);
+
         if (!dependency.hasDependencies() && !dependenciesWithNoDependencies.contains(dependency))
             dependenciesWithNoDependencies.add(dependency);
 
-        if (dependency.hasDependants() && outermostLeafDependencies.contains(dependency))
-            outermostLeafDependencies.remove(dependency);
+        if (dependency.hasDependants()) outermostLeafDependencies.remove(dependency);
+
         if (!dependency.hasDependants() && !outermostLeafDependencies.contains(dependency))
             outermostLeafDependencies.add(dependency);
 
@@ -120,7 +166,7 @@ public class DependencyForest<K, V> {
     }
 
     public void updateAllDependencies() {
-        allNodes.values().forEach(node -> updateDependency(node));
+        allNodes.values().forEach(this::updateDependency);
     }
 
     public List<Dependency<K, V>> getOutermostLeafDependencies() {
@@ -140,6 +186,10 @@ public class DependencyForest<K, V> {
         outermostLeafDependencies.clear();
     }
 
+    /**
+     * Converts this DependencyForest to a JSON array of JSON Dependency trees for all nodes currently held.
+     * @return
+     */
     public String toJson() {
         StringBuffer sb = new StringBuffer();
         if (getSerializingScheme() == SerializingScheme.DEPENDANTS) {
@@ -152,6 +202,7 @@ public class DependencyForest<K, V> {
 
             sb.append("]");
         }
+
         if (getSerializingScheme() == SerializingScheme.DEPENDENCIES) {
             sb.append("[");
             boolean[] first = {true};
@@ -173,20 +224,32 @@ public class DependencyForest<K, V> {
         return hasDependency(_candiate) ? getDependency(_candiate) : null;
     }
 
-    public Dependency<K, V> getDependency(Dependency dependency) {
+    /**
+     * Retrieves the reference to the Dependency object with identical values (per Dependency.equals) to
+     * the dependency param.
+     *
+     * @param dependency
+     * @return
+     */
+    public Dependency<K, V> getDependency(Dependency<K,V> dependency) {
         if (!hasDependency(dependency)) return null;
         return allNodes.get(dependency.getDataKey());
     }
 
-
-    public boolean hasDependency(Dependency dependency) {
+    /**
+     * Checks to see if a dependency with identical values exists in this DependencyForest.
+     *
+     * @param dependency
+     * @return true if dependency exists else false
+     */
+    public boolean hasDependency(Dependency<K,V> dependency) {
         return allNodes.values().stream().anyMatch(val -> val.equals(dependency));
     }
 
     /**
-     * Generates a string represendint the tree.
+     * Generates a string represendint the tree. More used for debugging purposes than anything else.
      *
-     * @return
+     * @return a list of all root or leaf nodes according to getSerializingScheme().
      */
     public ArrayList<String> allTreesToStrings() {
         ArrayList<String> trees = new ArrayList<>();

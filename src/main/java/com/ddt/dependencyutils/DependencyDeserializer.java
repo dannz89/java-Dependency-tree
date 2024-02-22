@@ -56,6 +56,16 @@ public class DependencyDeserializer extends StdDeserializer<Collection<Dependenc
         return dependencies;
     }
 
+    /**
+     * Parses JSON containing a dependency tree with a single root node and converts back into a nested set
+     * of dependencies.
+     *
+     * @param jp
+     * @param ctxt
+     * @param node
+     * @return
+     * @throws IOException
+     */
     private Dependency parseSingleTree(JsonParser jp, DeserializationContext ctxt, JsonNode node)
             throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();

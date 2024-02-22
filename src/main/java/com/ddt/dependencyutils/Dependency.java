@@ -309,6 +309,11 @@ public class Dependency<K, V> {
         return sb.toString();
     }
 
+    /**
+     * Converts this object to JSON.
+     *
+     * @return
+     */
     public String toJson(){
         try {
             DependencySerializer serializer = new DependencySerializer();
@@ -323,6 +328,13 @@ public class Dependency<K, V> {
         }
     }
 
+    /**
+     *
+     * @param Json
+     * @return
+     * @throws JsonProcessingException
+     * @throws JsonMappingException
+     */
     public static Collection<Dependency> fromJson(String Json)
             throws JsonProcessingException, JsonMappingException {
         ObjectMapper objectMapper = new ObjectMapper();
