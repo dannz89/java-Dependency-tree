@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
+import org.springframework.lang.NonNull;
 
 /**
  * TODO: Re-think equals method such that a more detailed comparison can be made than only the data key.
@@ -82,7 +83,7 @@ public class Dependency<K, V> {
 
         /**
          * Order is crucial. Even if we have no dependencies, the new dependency may still have this Dependency
-         * as an ancestor dependency so we have to check first.
+         * as an ancestor dependency, so we have to check first.
          */
 
         // Check first.
@@ -185,7 +186,7 @@ public class Dependency<K, V> {
 
         if (getDependencies().values().stream().anyMatch(value -> value.equals(dependency))) return true;
 
-        for (Dependency _dependency : getDependencies().values()) {
+        for (Dependency<K, V> _dependency : getDependencies().values()) {
             if (_dependency.hasDependency(dependency)) {
                 return true;
             }
@@ -237,6 +238,183 @@ public class Dependency<K, V> {
         return null;
     }
 
+    /**
+     * Removes a dependant from the tree, setting all its dependencies
+     *
+     * @param dependency The Dependency to remove.
+     */
+    public void removeDependency(Dependency<K, V> dependency) {
+        // If the Dependency doesn't exist in this tree, do nothing (nothing to remove).
+        if (!hasDependency(dependency)) return;
+
+        // This is not nonsensical. If K,V of this Dependency were String,String and the caller did this:
+        // Dependency<String,String> dep = new Dependency("KeyValue","ValueValue"); Their Dependency object value
+        // may exactly match one of ours but have the same Object ref. getDependency() returns the correct
+        // Object ref for us to remove.
+        Dependency<K, V> dependencyToRemove = getDependency(dependency);
+
+        // Get the victim's parents and children and set the parents of all the children to all the parents.
+        // Note that sometimes, this will result in a CircularDependencyException because the Dependency
+        // being removed is not the only parent of its child Dependencies. These in turn may share a common
+        // ancestor with the Dependency being removed in which case, they cannot be re-added as a Dependency.
+        // But it's also ok NOT to add these Dependencies as parents of the children because they will not
+        // be orphaned from the tree if this is the case. This will result in only orphaned children being
+        // grafted back on to the tree with the removed Dependency's parents.
+        // If we are going to remove dependency 3 (dataKey.equals("3"), this looks like this:
+        //
+        // Before:
+        //
+        // Z-
+        // C-
+        // A+
+        // B+
+        // |-1+
+        // |  |-2+
+        // |     |---e+
+        // |          ||
+        // |          ||
+        // |          ||
+        // |---------3+ (dependencies A,B)
+        //            ||-f+ (Dependencies e,3)
+        //            ||-g+ (Dependencies e,3)
+        //                ||-h (Dependencies f,g)
+        //            |-qq (Dependencies 3)
+        //
+        // Delete 3
+        //
+        // Z-
+        // C-
+        // A+
+        // B+
+        //  |-1+
+        //  |  |-2+
+        //  |     |---e+
+        //  |          |
+        //  |          |
+        //  |          |
+        //  |          |-f+ (Dependencies: e)
+        //  |          |-g+ (Dependencies: e)
+        //  |             |-h (Dependencies: f,g)
+        //  |-qq (Dependencies: A,B)
+
+
+        // Children / dependants - objects that are dependANT on 'me', that I'm a dependency OF.
+        Map<K, Dependency<K, V>> children = dependencyToRemove.getDependants();
+        if (children != null && !children.isEmpty()) {
+            children.values().forEach(child -> logger.info("child: {}", child.getDataKey()));
+        }
+
+        // Parents / dependencies - objects <b>I</b> depend on.
+        Map<K, Dependency<K, V>> parents = dependencyToRemove.getDependencies();
+
+        // Now we have the parents and children stored, we can rip the node from the tree.
+        removeDependency(getDependencies(), dependencyToRemove);
+
+        // Now the node has been removed set its parents to be the new parents of all its former children.
+        if (children != null && !children.isEmpty()) {
+            // Always remove the dependency-to-remove from its children's lists of dependencies (parents).
+            children.values().forEach(child -> child.getDependencies().remove(dependencyToRemove.getDataKey()));
+
+            if (parents != null && !parents.isEmpty()) {
+                // Remove the dependency-to-remove from its parent dependencies dependants arrays.
+                parents.values().forEach(parent -> parent.getDependants().remove(dependencyToRemove.getDataKey()));
+
+                // For each child, add all the parents that were previously the parents of the Dependency
+                // that was removed.
+                children.values().forEach(child -> parents.values().forEach(parent -> {
+                    try {
+                        logger.debug("Adding dependency {} to child {}", parent.getDataKey(), child.getDataKey());
+                        Map<K, Dependency<K, V>> parentRootNodes = parent.getRootNodes();
+                        Map<K, Dependency<K, V>> childRootNodes = child.getRootNodes();
+
+                        // addDependency() will also take care of setting the parent as a dependant of the given child.
+                        child.addDependency(parent);
+                    } catch (CircularDependencyException ce) {
+                        logger.debug("child dependency key {} and parent dependency key {} share common ancestor dependency. Not adding to avoid circular reference.", child.getDataKey(), parent.getDataKey());
+                    }
+                }));
+            }
+        }
+    }
+
+    /**
+     * Recursively searches the Dependency tree, finds the dependency to remove and removes it from its array.
+     *
+     * @param dependencies       List of Dependency objects to search for removal of dependency.
+     * @param dependencyToRemove The Dependency object to remove.
+     */
+    private void removeDependency(@NonNull Map<K, Dependency<K, V>> dependencies, @NonNull Dependency<K, V> dependencyToRemove) {
+        // If this list contains the one we want to remove then remove it and return.
+        if (dependencies.containsValue(dependencyToRemove)) {
+            dependencies.remove(dependencyToRemove.getDataKey());
+            return;
+        }
+
+        // Recurse further to keep looking for the object.
+        dependencies.values().forEach(dep -> {
+            if (dep.hasDependencies()) {
+                removeDependency(dep.getDependencies(), dependencyToRemove);
+            }
+        });
+    }
+
+    /**
+     * Convenience method to determine whether this Dependency has no dependencies and is therefore a root node.
+     *
+     * @return true if there are no dependencies else false.
+     */
+    public boolean isRootNode() {
+        return !hasDependencies();
+    }
+
+    /**
+     * Convenience method to determine whether this Dependency has no dependants and is therefore a leaf node.
+     *
+     * @return
+     */
+    public boolean isLeafNode() {
+        return !hasDependants();
+    }
+
+    /**
+     * Builds a ConcurrentHashMap<K,Dependency<K,V>> of all ancestor nodes of this Dependency which themselves
+     * have no dependencies or in other words, are root nodes. Remember that one Dependency leaf node or branch
+     * node can have multiple root nodes. This method acts as an initializer for the private method:
+     * private Map<K,Dependency<K,V>> getRootNode(Map<K,Dependency<K,V>> rootNodes) by passing a null value
+     * to that method so that it knows it is the first call.
+     *
+     * @return a Map containing all root Dependency nodes.
+     */
+    public Map<K, Dependency<K, V>> getRootNodes() {
+        return getRootNodes(null);
+    }
+
+    /**
+     * Builds a ConcurrentHashMap<K,Dependency<K,V>> of all ancestor nodes of this Dependency which themselves
+     * have no dependencies or in other words, are root nodes. Remember that one Dependency leaf node or branch
+     * node can have multiple root nodes. If param is null, a new ConcurrentHashMap is instantiated.
+     *
+     * @param rootNodes Map in which to store root nodes.
+     * @return a Map containing all root nodes of this Dependency.
+     */
+    private Map<K, Dependency<K, V>> getRootNodes(Map<K, Dependency<K, V>> rootNodes) {
+        Map<K, Dependency<K, V>> roots = (rootNodes != null) ? rootNodes : new ConcurrentHashMap<>();
+
+        // If we are the root node then we must be the only root node. Really this is just a way if calling
+        // hasDependencies().
+        if (isRootNode()) {
+            roots.put(getDataKey(), this);
+            return roots;
+        }
+
+        // If we are here, hasDependencies() is true and we aren't a root node. So we recurse UP the
+        // dependency tree (from leaves to roots), until we find all the root nodes.
+        for (Dependency<K, V> dependency : getDependencies().values()) {
+            dependency.getRootNodes(roots);
+        }
+
+        return roots;
+    }
 
     public boolean hasForest() {
         return dependencyForest != null;
@@ -349,29 +527,59 @@ public class Dependency<K, V> {
         return treeToString(0,this);
     }
 
-    private String treeToString(int recursionLevel, Dependency<K, V> dependency){
-        StringBuffer sb = null;
+    private String treeToString(int recursionLevel, Dependency<K, V> dependency) {
+        StringBuilder sb = null;
 
-        if(recursionLevel==0){
-            String title = "===> ["
-                    + dependency.getDataKey()
-                    + " dependencies=("
-                    + (dependency.getDependencies()==null? 0 : dependency.getDependencies().size())
-                    + ")] <===";
-            sb = new StringBuffer(title);
-        } else {
-            sb = new StringBuffer("-".repeat(recursionLevel)+ dependency.toString()
-                    + "("
-                    + (dependency.getDependencies() == null ? 0 : dependency.getDependencies().size())
-                    + ")");
-        }
+        switch (getSerializingScheme()) {
+            case DEPENDENCIES -> {
+                if (recursionLevel == 0) {
+                    String title = "===> ["
+                            + dependency.getDataKey()
+                            + " dependencies=("
+                            + (dependency.getDependencies() == null ? 0 : dependency.getDependencies().size())
+                            + ")] <===";
+                    sb = new StringBuilder(title);
+                } else {
+                    sb = new StringBuilder("-".repeat(recursionLevel) + dependency.toString()
+                            + "("
+                            + (dependency.getDependencies() == null ? 0 : dependency.getDependencies().size())
+                            + ")");
+                }
 
-        if(!dependency.hasDependencies()) return sb.toString() + "\n"+"-".repeat(recursionLevel)+"<< NO DEPENDENCIES >>\n";
+                if (!dependency.hasDependencies())
+                    return sb.toString() + "\n" + "-".repeat(recursionLevel) + "<< NO DEPENDENCIES >>\n";
 
-        sb.append("\n");
+                sb.append("\n");
 
-        for(K dependencyKey : dependency.getDependencies().keySet()){
-            sb.append(treeToString(recursionLevel+1, dependency.getDependencies().get(dependencyKey)));
+                for (K dependencyKey : dependency.getDependencies().keySet()) {
+                    sb.append(treeToString(recursionLevel + 1, dependency.getDependencies().get(dependencyKey)));
+                }
+
+            }
+            case DEPENDANTS -> {
+                if (recursionLevel == 0) {
+                    String title = "===> ["
+                            + dependency.getDataKey()
+                            + " dependencies=("
+                            + (dependency.getDependants() == null ? 0 : dependency.getDependants().size())
+                            + ")] <===";
+                    sb = new StringBuilder(title);
+                } else {
+                    sb = new StringBuilder("-".repeat(recursionLevel) + dependency.toString()
+                            + "("
+                            + (dependency.getDependants() == null ? 0 : dependency.getDependants().size())
+                            + ")");
+                }
+
+                if (!dependency.hasDependants())
+                    return sb.toString() + "\n" + "-".repeat(recursionLevel) + "<< NO DEPENDANTS >>\n";
+
+                sb.append("\n");
+
+                for (K dependencyKey : dependency.getDependants().keySet()) {
+                    sb.append(treeToString(recursionLevel + 1, dependency.getDependants().get(dependencyKey)));
+                }
+            }
         }
 
         return sb.toString();
