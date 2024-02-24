@@ -124,6 +124,15 @@ public class DependencyForest<K, V> {
     }
 
     /**
+     * Convenience friendly-named method to get all Dependencies with no Dependencies.
+     *
+     * @return
+     */
+    public List<Dependency<K, V>> getRootNodes() {
+        return getDependenciesWithNoDependencies();
+    }
+
+    /**
      * Adds a new dependency to the forest.
      * @param dependency
      */

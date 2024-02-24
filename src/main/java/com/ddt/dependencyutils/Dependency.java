@@ -2,6 +2,7 @@ package com.ddt.dependencyutils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.ddt.dependencyutils.exception.CircularDependencyException;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -43,22 +44,23 @@ public class Dependency<K, V> {
     @JsonIgnore
     private boolean isADependency = false;
 
-    public DependencyForest getDependencyForest() {
+    public DependencyForest<K, V> getDependencyForest() {
         return dependencyForest;
     }
 
+    public List<List<Dependency<K, V>>> routesToRootNodes;
     @JsonIgnore
-    private DependencyForest dependencyForest;
+    private DependencyForest<K, V> dependencyForest;
 
     @JsonIgnore
     private DependencyForest.SerializingScheme serializingScheme = DependencyForest.SerializingScheme.DEPENDANTS;
-    private static boolean serializeDependencies = false;
 
     private static List<Dependency<?,?>> outermostLeafDependencies;
     private static List<Dependency<?,?>> dependenciesWithNoDependencies;
 
     public Dependency() {
     }
+
     @JsonCreator
     public Dependency(@JsonProperty("dataKey") K dataKey, @JsonProperty("data") V data) {
         this();
@@ -91,7 +93,7 @@ public class Dependency<K, V> {
 
         // If we get here, we didn't throw a CircularReferenceException so the new dependency is valid.
         if (dependencies == null) {
-            dependencies = new ConcurrentHashMap<K, Dependency<K, V>>();
+            dependencies = new ConcurrentHashMap<>();
         }
 
         // Save time if it's already been added.
@@ -102,6 +104,7 @@ public class Dependency<K, V> {
 
         dependency.setIsADependency(true);
         dependency.addDependant(this);
+        setRoutesToRootNodes();
 
         // We now have dependencies.
         if (hasForest()) {
@@ -110,6 +113,68 @@ public class Dependency<K, V> {
             dependencyForest.updateAllDependencies();
         }
     }
+
+    /**
+     * Sorts the routesToRootNodes by size of route to all ancestor root nodes from this Dependency
+     * and returns the resulting sorted List<Dependency<K,V>>
+     *
+     * @return List of sorted routes to root nodes from this Dependency.
+     */
+    public List<List<Dependency<K, V>>> getRoutesToRootNodes() {
+        if (routesToRootNodes != null) {
+            setRoutesToRootNodes();
+            routesToRootNodes.sort(Comparator.comparingInt(List::size));
+        }
+
+        return routesToRootNodes;
+    }
+
+    /**
+     * Sets a list of this Dependency's routes to its root nodes. This is useful for display purposes. If we
+     * know which nodes are the furthest away from their roots, we can better display the Dependency tree.
+     */
+    private void setRoutesToRootNodes() {
+        if (routesToRootNodes == null) {
+            routesToRootNodes = new CopyOnWriteArrayList<>();
+        } else {
+            routesToRootNodes.clear();
+        }
+        setRoutesToRootNodes(routesToRootNodes, null);
+    }
+
+    private void setRoutesToRootNodes(List<List<Dependency<K, V>>> routes, ArrayList<Dependency<K, V>> route) {
+        // Always add this node to the route so that all routes have at least one node, that being the root
+        // node of the given route.
+        if (route != null) {
+            route.add(this);
+        }
+
+        ArrayList<Dependency<K, V>> routeToAdd = (route == null) ? new ArrayList<>() : route;
+
+        if (isRootNode()) {
+            // This means we have arrived at a root node. By this time, routeToAdd will have been recursively
+            // populated with all the nodes connected from the leaf node that originally called the method.
+            // We add the list to the list of routes and exit the recursion loop.
+            routes.add(routeToAdd);
+            return;
+        }
+
+        // Recursively call setRoutesToRootNodes for all dependencies.
+        getDependencies().values().forEach(dependency -> {
+            // Why do this? Because if we have hit a node on which several branches converge, we have effectively
+            // hit a node at which the route splits into 'n' separate routes. We want, therefore, to create a new
+            // list for each route so that when it finally reaches its ancestor rootNode, it will be added to
+            // the routes list as a distinct route rather than a nonsensical collection of nodes. This works even
+            // if the node is not a convergence but has just one ancestor on the way to the root. In that case,
+            // it's just one unnecessary instantiation but these structures will typically not be very costly so
+            // it doesn't really matter.
+            ArrayList<Dependency<K, V>> onwardRoute = new ArrayList<>(routeToAdd);
+
+            // Send the list of nodes in the route on its way up the recursion.
+            dependency.setRoutesToRootNodes(routes, onwardRoute);
+        });
+    }
+
 
     private void setIsADependency(boolean isADependency){
         this.isADependency=isADependency;
@@ -174,6 +239,8 @@ public class Dependency<K, V> {
         }
         return false;
     }
+
+
 
     /**
      * Tests if this Dependency has any parent or ancestor dependency with dataKey.equals(key).

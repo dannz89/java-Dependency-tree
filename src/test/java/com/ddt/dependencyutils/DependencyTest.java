@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -223,6 +224,178 @@ public class DependencyTest
 		}
 
 	}
+
+	@Test
+	public void routesToRootNodes() {
+		Dependency<String, String> depZ = new Dependency<>("Z", "dep Z");
+		Dependency<String, String> depC = new Dependency<>("C", "dep C");
+		Dependency<String, String> depA = new Dependency<>("A", "dep A");
+		Dependency<String, String> depB = new Dependency<>("B", "dep B");
+		Dependency<String, String> dep1 = new Dependency<>("1", "dep 1");
+		Dependency<String, String> dep2 = new Dependency<>("2", "dep 2");
+		Dependency<String, String> dep3 = new Dependency<>("3", "dep 3");
+		Dependency<String, String> depe = new Dependency<>("e", "dep e");
+		Dependency<String, String> depf = new Dependency<>("f", "dep f");
+		Dependency<String, String> depg = new Dependency<>("g", "dep g");
+		Dependency<String, String> deph = new Dependency<>("h", "dep h");
+		Dependency<String, String> depJohnny = new Dependency<>("Johnny", "Johnny");
+		Dependency<String, String> depDannny = new Dependency<>("Danny", "Danny");
+		depA.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
+		depB.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
+		dep1.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
+		dep2.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
+		dep3.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
+		depe.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
+		depf.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
+		depg.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
+		deph.setSerializingScheme(DependencyForest.SerializingScheme.DEPENDANTS);
+
+		try {
+			// f+
+			// g+
+			//	|-h
+			deph.addDependency(depf);
+			deph.addDependency(depg);
+
+			// e+
+			//	|-f+
+			//	|-g+
+			//	   |-h
+			depf.addDependency(depe);
+			depg.addDependency(depe);
+
+
+			// 2+
+			//	|-e+
+			//	   |-f+
+			//	   |-g+
+			//	      |-h
+			depe.addDependency(dep2);
+
+			// 1+
+			// 	|2+
+			//	  |-e+
+			//	     |-f+
+			//	     |-g+
+			//	        |-h
+			dep2.addDependency(dep1);
+
+			//A+
+			//B+
+			// |1+
+			// 	 |2+
+			//	   |-e+
+			//	      |-f+
+			//	      |-g+
+			//	         |-h
+			dep1.addDependency(depA);
+			dep1.addDependency(depB);
+
+			// 3+
+			//	|-f+
+			//	|-g+
+			//	|  |-h
+			//  |-Johnny
+			//  |-Danny
+			depf.addDependency(dep3);
+			depg.addDependency(dep3);
+			depJohnny.addDependency(dep3);
+			depDannny.addDependency(dep3);
+
+			// Whole tree.
+			//Z+
+			//C
+			//A+
+			//B+
+			// Z|1+
+			// Z| |2+
+			// Z|   |-e+
+			// Z|   |
+			// Z|   |
+			// Z|   |
+			// ----Z|3+
+			//     ||-f+
+			//	   ||-g+
+			//	      |-h
+			//	   |-Johnny
+			//	   |-Dan
+
+			dep3.addDependency(depA);
+			dep3.addDependency(depB);
+			dep3.addDependency(depZ);
+
+			logger.info(depA.treeToString());
+			logger.info(depB.treeToString());
+			logger.info(depZ.treeToString());
+
+			StringBuilder sb = new StringBuilder();
+
+			sb.append("\n").append("Found [").append(dep3.getRoutesToRootNodes().size()).append("] routes to root nodes for dependency [").append(dep3.getDataKey()).append("]:\n");
+			for (List<Dependency<String, String>> route : dep3.getRoutesToRootNodes()) {
+				sb.append("route ").append("size=(").append(route.size()).append("): ");
+				boolean first = true;
+				for (Dependency<String, String> node : route) {
+					if (!first) {
+						sb.append(",");
+					}
+
+					sb.append("[").append(node.getDataKey()).append("]");
+
+					if (first) {
+						first = false;
+					}
+				}
+				sb.append("\n");
+			}
+			logger.info("{}", sb);
+
+			sb.setLength(0);
+			sb.append("\n").append("Found [").append(depe.getRoutesToRootNodes().size()).append("] routes to root nodes for dependency [").append(depe.getDataKey()).append("]:\n");
+			for (List<Dependency<String, String>> route : depe.getRoutesToRootNodes()) {
+				sb.append("route ").append("size=(").append(route.size()).append("): ");
+				boolean first = true;
+				for (Dependency<String, String> node : route) {
+					if (!first) {
+						sb.append(",");
+					}
+
+					sb.append("[").append(node.getDataKey()).append("]");
+
+					if (first) {
+						first = false;
+					}
+				}
+				sb.append("\n");
+			}
+			logger.info("{}", sb);
+
+			sb.setLength(0);
+			sb.append("\n").append("Found [").append(depC.getRoutesToRootNodes().size()).append("] routes to root nodes for dependency [").append(depC.getDataKey()).append("]:\n");
+			for (List<Dependency<String, String>> route : depC.getRoutesToRootNodes()) {
+				sb.append("route ").append("size=(").append(route.size()).append("): ");
+				boolean first = true;
+				for (Dependency<String, String> node : route) {
+					if (!first) {
+						sb.append(",");
+					}
+
+					sb.append("[").append(node.getDataKey()).append("]");
+
+					if (first) {
+						first = false;
+					}
+				}
+				sb.append("\n");
+			}
+			logger.info("{}", sb);
+
+			sb.setLength(0);
+		} catch (Exception e) {
+			logger.error("The exception that shouldn't be", e);
+		}
+
+	}
+
 
 	@Test
 	public void hasAndGetAndOptionalTests() {
