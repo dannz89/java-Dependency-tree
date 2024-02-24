@@ -377,11 +377,50 @@ public class Dependency<K, V> {
     }
 
     /**
+     * Builds a ConcurrentHashMap<K,Dependency<K,V>> of leaf nodes (!hasDependants()) on all nodes below this
+     * Dependency on its tree or in its DependencyForest.
+     *
+     * @return a Map of leaf nodes.
+     */
+    public Map<K, Dependency<K, V>> getLeafNodes() {
+        return getLeafNodes(null);
+    }
+
+    /**
+     * Builds a list of all leaf nodes from where this Dependency is positioned in its tree or DependencyForest.
+     * This method does not yield ALL leaf nodes in the tree.
+     *
+     * @param leafNodes the Map of leaf nodes built so far.
+     * @return Map of leaf nodes.
+     */
+    private Map<K, Dependency<K, V>> getLeafNodes(Map<K, Dependency<K, V>> leafNodes) {
+        Map<K, Dependency<K, V>> leaves = (leafNodes != null) ? leafNodes : new ConcurrentHashMap<>();
+
+        // If we are a leaf node then we must be the only leaf node. Really this is just a way of calling
+        // hasDependants().
+        if (isLeafNode()) {
+            leaves.put(getDataKey(), this);
+            return leaves;
+        }
+
+        // If we are here, isLeafNode() is false (i.e. hasDependants() is true) and we aren't a leaf node.
+        // So we recurse DOWN the dependency tree (from roots - or wherever we are - to leaves), until we find
+        // all the leaf nodes.
+        for (Dependency<K, V> dependant : getDependants().values()) {
+            dependant.getRootNodes(leaves);
+        }
+
+        return leaves;
+    }
+
+    /**
      * Builds a ConcurrentHashMap<K,Dependency<K,V>> of all ancestor nodes of this Dependency which themselves
      * have no dependencies or in other words, are root nodes. Remember that one Dependency leaf node or branch
      * node can have multiple root nodes. This method acts as an initializer for the private method:
      * private Map<K,Dependency<K,V>> getRootNode(Map<K,Dependency<K,V>> rootNodes) by passing a null value
-     * to that method so that it knows it is the first call.
+     * to that method so that it knows it is the first call. If this Dependency is part of a DependencyForest
+     * object, only its root nodes will be returned. To get all roots of the forest, the DependencyForest instnace
+     * methods must be used.
      *
      * @return a Map containing all root Dependency nodes.
      */
