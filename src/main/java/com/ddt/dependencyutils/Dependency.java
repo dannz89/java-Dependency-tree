@@ -19,15 +19,34 @@ import org.springframework.core.annotation.Order;
 import org.springframework.lang.NonNull;
 
 /**
- * TODO: Re-think equals method such that a more detailed comparison can be made than only the data key.
- * At the moment, It's possible for two instances that share the same key to report equality. So if an object
- * with the same key value, even if it's not an identical object ref, will report equal and fail the circular
- * dependency check.
- *
- * @param <K>
- * @param <V>
+ * TODO: Implement recursive equals such that the comparison checks whether the comparators have identical
+ * dependency trees.
+ * TODO: Implement an iterator which recurses the tree according to serializing scheme (roots down or leaves up).
+ * <p>
+ * Dependency (and Dependency tree). This class represents both a node in a Dependency tree and the multi-rooted
+ * tree itself. Adding and removing nodes in the tree are supported via addDependency and removeDependency.
+ * </p>
+ * <p>
+ * While Dependency supports multiple roots e.g. Y depends on X and X depends on A,B and C while A,B and C have no
+ * dependencies and so are root nodes, it does not naturally guarantee awareness of its full context. For example,
+ * if Z depends on Y and Y depends on A, B, C and D, it would be possible to derive a list of all the root nodes
+ * (A,B,C and D) and therefore have access to their respective Dependant trees. But when dealing with real world
+ * data, a likely scenario is one in which not every Dependency depends on all root nodes. For example, where
+ * Z depends on Y and Y depends on A, B, C and D and 4 depends on 1 and 2 which both depend on E. In this case,
+ * there are five root nodes (nodes with no dependencies), namely A, B, C, D and E.
+ * </p>
+ * <p>
+ * Taking Y, it would be possible to find root nodes A, B, C and D but because Y has no ancestral dependency on
+ * E, E would be overlooked, as would 4, 1 and 2, if trying to generate a complete structure of all the real
+ * world data present.
+ * </p>
+ * <p>
+ * The DependencyForest class has been provided for this reason. It knows the context of all the Dependencies
+ * added to it.
+ * </p>
+ * @param <K> key type
+ * @param <V> value type
  */
-
 @JsonSerialize(using = DependencySerializer.class)
 public class Dependency<K, V> {
     private final static Logger logger = LoggerFactory.getLogger(Dependency.class);
@@ -68,6 +87,11 @@ public class Dependency<K, V> {
         this.data = data;
     }
 
+    /**
+     * If a Dependency is added, then the Dependency it is added to is in turn added as a Dependant.
+     *
+     * @param dependant the Dependency to add as a Dependant.
+     */
     private void addDependant(Dependency<K,V> dependant){
         if (this.hasForest()) {
             dependant.setDependencyForest(getDependencyForest());
@@ -78,7 +102,13 @@ public class Dependency<K, V> {
         this.dependants.put(dependant.getDataKey(),dependant);
     }
 
-
+    /**
+     * Adds a Dependency to this Dependency.
+     * @param dependency the Dependency to add.
+     * @throws CircularDependencyException if the Dependency being added or any of its ancestors is already a
+     * Dependency of this Dependency.
+     * @throws NullPointerException
+     */
     public void addDependency(Dependency<K, V> dependency)
             throws CircularDependencyException, NullPointerException {
         if (dependency == null) return;
@@ -122,6 +152,8 @@ public class Dependency<K, V> {
      */
     public List<List<Dependency<K, V>>> getRoutesToRootNodes() {
         if (routesToRootNodes != null) {
+            // This is called every time because there is no guarantee Dependency objects have not been added
+            // or removed since the last time the routes were generated.
             setRoutesToRootNodes();
             routesToRootNodes.sort(Comparator.comparingInt(List::size));
         }
@@ -130,7 +162,7 @@ public class Dependency<K, V> {
     }
 
     /**
-     * Sets a list of this Dependency's routes to its root nodes. This is useful for display purposes. If we
+     * Builds a list of this Dependency's routes to its root nodes. This is useful for display purposes. If we
      * know which nodes are the furthest away from their roots, we can better display the Dependency tree.
      */
     private void setRoutesToRootNodes() {
@@ -142,6 +174,11 @@ public class Dependency<K, V> {
         setRoutesToRootNodes(routesToRootNodes, null);
     }
 
+    /**
+     * Recursively builds routes to root nodes and adds them to the routes List as each root node is detected.
+     * @param routes the List in which to store routes.
+     * @param route the current route being derived.
+     */
     private void setRoutesToRootNodes(List<List<Dependency<K, V>>> routes, ArrayList<Dependency<K, V>> route) {
         // Always add this node to the route so that all routes have at least one node, that being the root
         // node of the given route.
@@ -184,6 +221,13 @@ public class Dependency<K, V> {
         return isADependency;
     }
 
+    /**
+     * Sets the direction in which to serialize this Dependency and all its dependencies. This method acts
+     * recursively on all dependencies. The serializing scheme must be set to avoid infinite recursion when
+     * serializing the Dependency. If the dependency was serialized in both direction, the recursion would
+     * never end so it must either stop when it hits the roots or when it reaches the leaves.
+     * @param serializingScheme the serializing scheme to set.
+     */
     public void setSerializingScheme(DependencyForest.SerializingScheme serializingScheme) {
         this.serializingScheme = serializingScheme;
         if (hasDependencies()) {
@@ -199,10 +243,11 @@ public class Dependency<K, V> {
     }
 
     /**
-     * Returns true if dependency is an instance of Dependency and the contents of its dataKey and
+     * Compares this Dependency with another object.
      *
-     * @param dependency
-     * @return
+     * @param dependency the object to compare with this Dependency
+     * @return true if both objects are Dependency objects with the same Object reference
+     * or if their keys and values are equal, else false.
      */
     @Override
     public boolean equals(Object dependency) {
@@ -224,15 +269,15 @@ public class Dependency<K, V> {
     /**
      * Tests whether this Dependency has any parent or ancestor Dependency with dataKey.equals(key)
      *
-     * @param dependant
-     * @return
+     * @param dependant the dependant Dependency to check.
+     * @return true if dependant exists in the tree else false.
      */
     public boolean hasDependant(Dependency<K, V> dependant) {
         if (!hasDependants()) return false;
 
         if (getDependants().values().stream().anyMatch(val -> val.equals(dependant))) return true;
 
-        for (Dependency _dependant : getDependants().values()) {
+        for (Dependency<K, V> _dependant : getDependants().values()) {
             if (dependant.hasDependant(_dependant)) {
                 return true;
             }
@@ -629,10 +674,30 @@ public class Dependency<K, V> {
     }
 
 
+    /**
+     * Mainly supplied for debugging purposes, this method generates and returns an 'ASCII art' tree representation of this
+     * Dependency tree from its point on the tree either up through the Dependency hierarchy of dependencies to the root nodes if
+     * getSerializationScheme() is DependencyForest.SerializationScheme.DEPENDENCIES or down through the Dependency hierarchy of
+     * dependants to the leaf nodes if GetSerializationScheme() is DependencyForest.SerializationScheme.DEPENDANTS.
+     * <p>
+     * In practice, the method acts as the public top-level call to the recursive private method which contains
+     * the actual String building functionality. It calls the private method with recursion level 0 to start the
+     * process.
+     * </p>
+     * @return a String containing the 'ASCII art' Dependency tree.
+     */
     public String treeToString(){
         return treeToString(0,this);
     }
 
+
+    /**
+     * Generates a convenient representation of the Dependency tree per the documentation for the public version
+     * of the method.
+     * @param recursionLevel used to determine indentation and whether we are at the top level of the tree for display purposes.
+     * @param dependency the Dependency whose tree to generate.
+     * @return a String containing a user-friendly representation of the Dependency tree.
+     */
     private String treeToString(int recursionLevel, Dependency<K, V> dependency) {
         StringBuilder sb = null;
 
@@ -691,9 +756,18 @@ public class Dependency<K, V> {
         return sb.toString();
     }
 
+    /**
+     * Returns this Dependency's key.
+     * @return A K of data key.
+     */
     public K getDataKey(){
         return this.dataKey;
     }
+
+    /**
+     * Returns this Dependency's data.
+     * @return a V of this Dependency's data.
+     */
     public V getData() { return this.data; }
 
     public Map<K, Dependency<K, V>> getDependencies() {
@@ -702,9 +776,10 @@ public class Dependency<K, V> {
     public Map<K, Dependency<K,V>> getDependants(){ return this.dependants; }
 
     /**
-     * @param dependant
-     * @param newDependency
-     * @throws CircularDependencyException
+     * @param dependant The candidate for addition newDependency as a Dependency. When this call is made, this
+     *                  parameter will be the Dependency on whose addDependency method was called.
+     * @param newDependency the Dependency to check against for circular references.
+     * @throws CircularDependencyException if there is a circular reference.
      */
     private void validateNewDependency(Dependency<K, V> dependant, Dependency<K, V> newDependency)
             throws CircularDependencyException {
@@ -716,8 +791,9 @@ public class Dependency<K, V> {
      * This checks for circular dependencies from the node being added downwards. But it serves as an overall
      * check for the entire tree from head to outermost leaf because it gets called every time a child is
      * added.
-     * @param newDependency
-     * @throws CircularDependencyException
+     * @param newDependency The new Dependency candidate for adding as a Dependency to dependantDependency
+     * @throws CircularDependencyException if newDependency is already a parent or other ancestor Dependency of
+     * dependantDependency.
      */
     private void validateNewDependency(
             Dependency<K, V> dependantDependency,
