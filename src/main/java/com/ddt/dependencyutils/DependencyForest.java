@@ -1,5 +1,7 @@
 package com.ddt.dependencyutils;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,16 +20,18 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public class DependencyForest<K, V> {
     private final static Logger logger = LoggerFactory.getLogger(DependencyForest.class);
+
     private List<Dependency<K, V>> outermostLeafDependencies;
     private List<Dependency<K, V>> dependenciesWithNoDependencies;
 
+    @JsonIgnore
     private Map<K, Dependency<K, V>> allNodes;
 
     private String name;
 
     public enum SerializingScheme {DEPENDENCIES, DEPENDANTS}
 
-    ;
+    @JsonIgnore
     private SerializingScheme serializingScheme = SerializingScheme.DEPENDANTS;
 
     /**
@@ -40,7 +44,7 @@ public class DependencyForest<K, V> {
     }
 
     /**
-     * @param serializingScheme
+     * @param serializingScheme The serializing scheme to use.
      */
     public DependencyForest(SerializingScheme serializingScheme) {
         this();
@@ -48,7 +52,7 @@ public class DependencyForest<K, V> {
     }
 
     /**
-     * @param serializingScheme
+     * @param serializingScheme The serializing scheme to use.
      */
     public void setSerializingScheme(SerializingScheme serializingScheme) {
         this.serializingScheme = serializingScheme;
@@ -58,7 +62,7 @@ public class DependencyForest<K, V> {
     }
 
     /**
-     * @return
+     * @return the current serializing scheme.
      */
     public SerializingScheme getSerializingScheme() {
         return this.serializingScheme;
@@ -73,18 +77,17 @@ public class DependencyForest<K, V> {
     }
 
     /**
-     * Setes a user-friendly label for this DependencyForest.
-     *
-     * @return
+     * Returns the user-friendly name of this DependencyForest
+     * @return the name of this DependencyForest.
      */
+    @JsonProperty
     public String getName() {
         return this.name;
     }
 
     /**
-     * Returns the user-friendly name of this DependencyForest
-     *
-     * @param name
+     * Sets a user-friendly label for this DependencyForest.
+     * @param name the name to set.
      */
     public void setName(String name) {
         this.name = name;
