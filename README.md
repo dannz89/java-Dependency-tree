@@ -27,8 +27,10 @@ following features:
 So this is the beginning. It works as is and over time, I'll add iterable and search functionalitiy.
 
 TODO: Improve JavaDoc
+
 TODO: Implement standard interfaces (decide between Collection, List, Map or all / other) and provide iterable and other
 standard methods.
+
 TODO: Add getRootNodes() conveience method to Dependency.java.
 
 
